@@ -1,13 +1,6 @@
 #include <string>
 
-class KeyValuePair {
-public:
-    std::string key;
-    double value;
-
-    KeyValuePair(const std::string& k, double v) : key(k), value(v) {}
-
-    static KeyValuePair get_random();
-};
+using KeyValuePair = std::pair<std::string, double>;
+KeyValuePair get_random_kv();
 
 std::string sha256(const std::string& input);

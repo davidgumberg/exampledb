@@ -9,5 +9,6 @@ private:
     mdbx::env_managed env;
     mdbx::env::operate_parameters operate_params;
     mdbx::env_managed::create_parameters create_params;
+    mdbx::map_handle map;
     mdbx::txn_managed txn;
 };
