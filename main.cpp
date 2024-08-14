@@ -33,12 +33,12 @@ int main() {
 
     // Generate 10 random key-value pairs
     for (int i = 0; i < 10; i++) {
-       pairs.push_back(KeyValuePair::get_random());
+       pairs.push_back(get_random_kvp());
     }
 
     // Loop through and print the key-value pairs
     for (const auto& pair : pairs) {
-        std::cout << "Key: " << pair.key << ", Value: " << pair.value << std::endl;
+        std::cout << "Key: " << pair.first << ", Value: " << pair.second << std::endl;
     }
 
     return 0;

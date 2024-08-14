@@ -7,7 +7,8 @@
 
 #include "kv.h"
 
-KeyValuePair get_random_kv() {
+/* Generate a random std::string key, and double value. */
+KeyValuePair get_random_kvp() {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_real_distribution<> dis(0.0, 1.0);
@@ -19,6 +20,7 @@ KeyValuePair get_random_kv() {
     return KeyValuePair{key, value};
 }
 
+/* Return the sha256 of a given string */
 std::string sha256(const std::string& input) {
     EVP_MD_CTX* context = EVP_MD_CTX_new();
     if(context == nullptr) {
