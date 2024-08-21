@@ -1,65 +1,18 @@
 #include <cassert>
 #include <filesystem>
 #include <mdbx.h>
-#include <optional>
+
+#include "dbwrapper.h"
 
 // We avoid including mdbx.h++ in this file, to follow the constraints of
 // bitcoin core, we don't want library users to have to include symbols
 
-//! User-controlled performance and debug options.
-struct DBOptions {
-    //! Compact database on startup.
-    bool force_compact = false;
-};
-
-//! Application-specific storage settings.
-struct DBParams {
-    //! Location in the filesystem where leveldb data will be stored.
-    std::filesystem::path path;
-    //! Configures various leveldb cache settings.
-    size_t cache_bytes;
-    //! If true, use leveldb's memory environment.
-    bool memory_only = false;
-    //! If true, remove all existing data.
-    bool wipe_data = false;
-    //! If true, store data obfuscated via simple XOR. If false, XOR with a
-    //! zero'd byte array.
-    bool obfuscate = false;
-    //! Passed-through options.
-    DBOptions options{};
-};
-
-static inline std::string PathToString(const std::filesystem::path path)
-{
-    return path.std::filesystem::path::string();
-}
-
-class DBWrapperBase
-{
-protected:
-    DBWrapperBase(const DBParams& params)
-        : m_name(PathToString(params.path.stem())),
-          m_path(params.path),
-          m_is_memory(params.memory_only)
-    {}
-
-    //! the name of this database
-    std::string m_name;
-
-    //! path to filesystem storage
-    const std::filesystem::path m_path;
-
-    //! whether or not the database resides in memory
-    bool m_is_memory;
-
-public:
-    virtual ~DBWrapperBase() = default;
-};
-
 // MDBXContext is defined in mdbx.cpp to avoid dependency on libmdbx here
 struct MDBXContext;
 
-class MDBXWrapper : DBWrapperBase
+class MDBXBatch;
+
+class MDBXWrapper : public CDBWrapperBase
 {
 private:
     std::unique_ptr<MDBXContext> m_db_context;
@@ -67,14 +20,34 @@ private:
     auto& DBContext() const [[clang::lifetimebound]] {
         assert(m_db_context);
         return *m_db_context;
+
     }
+
+    std::optional<std::string> ReadImpl(std::span<const std::byte> key) const override;
+    bool ExistsImpl(std::span<const std::byte> key) const override;
+    size_t EstimateSizeImpl(std::span<const std::byte> key1, std::span<const std::byte> key2) const override;
+
+    std::unique_ptr<CDBBatchBase> CreateBatch() const override;
+
 public:
     MDBXWrapper(std::filesystem::path path);
     ~MDBXWrapper() override;
+
+    bool WriteBatch(CDBBatchBase& batch, bool fSync) override;
+
+    // Get an estimate of MDBX memory usage (in bytes).
+    size_t DynamicMemoryUsage() const override;
+
+    CDBIteratorBase* NewIterator() override;
+
+    /**
+     * Return true if the database managed by this class contains no entries.
+     */
+    bool IsEmpty() override;
 };
 
 /** Batch of changes queued to be written to an MDBXWrapper */
-class MDBXBatch
+class MDBXBatch : public CDBBatchBase
 {
     friend class MDBXWrapper;
 
@@ -84,15 +57,40 @@ private:
     struct WriteBatchImpl;
     const std::unique_ptr<WriteBatchImpl> m_impl_batch;
 
-    size_t size_estimate{0};
+    void WriteImpl(std::span<const std::byte> key, DataStream& ssValue) override;
+    void EraseImpl(std::span<const std::byte> key) override;
 
 public:
     /**
      * @param[in] _parent   CDBWrapper that this batch is to be submitted to
      */
-    explicit MDBXBatch(const DBWrapperBase& _parent);
+    explicit MDBXBatch(const CDBWrapperBase& _parent);
     ~MDBXBatch();
-    void Clear();
+    void Clear() override;
+};
 
-    size_t SizeEstimate() const { return size_estimate; }
+/** Batch of changes queued to be written to a CDBWrapper */
+class MDBXIterator : public CDBIteratorBase
+{
+public:
+    struct IteratorImpl;
+    private:
+    const std::unique_ptr<IteratorImpl> m_impl_iter;
+
+    void SeekImpl(std::span<const std::byte> key) override;
+    std::span<const std::byte> GetKeyImpl() const override;
+    std::span<const std::byte> GetValueImpl() const override;
+
+public:
+
+    /**
+     * @param[in] _parent          Parent CDBWrapper instance.
+     * @param[in] _piter           MDBX iterator.
+     */
+    MDBXIterator(const CDBWrapperBase& _parent, std::unique_ptr<IteratorImpl> _piter);
+    ~MDBXIterator() override;
+
+    bool Valid() const override;
+    void SeekToFirst() override;
+    void Next() override;
 };

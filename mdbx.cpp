@@ -22,7 +22,7 @@ struct MDBXContext {
 };
 
 MDBXWrapper::MDBXWrapper(std::filesystem::path path)
-    : DBWrapperBase(DBParams{}),
+    : CDBWrapperBase(DBParams{}),
     m_db_context{std::make_unique<MDBXContext>()}
 {
     DBContext().env = mdbx::env_managed(path, DBContext().create_params, DBContext().operate_params);
@@ -32,4 +32,11 @@ MDBXWrapper::MDBXWrapper(std::filesystem::path path)
 
 MDBXWrapper::~MDBXWrapper()
 {
+}
+
+bool MDBXWrapper::WriteBatch(CDBBatchBase& batch, bool fSync)
+{
+    MDBXBatch& mdbx_batch = static_cast<MDBXBatch&>(batch);
+
+    return true;
 }
