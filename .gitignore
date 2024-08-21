@@ -1,4 +1,6 @@
 *.o
 db
 data/
+compile_commands.json
+.cache/
 
