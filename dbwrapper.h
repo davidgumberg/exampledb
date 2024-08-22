@@ -7,7 +7,13 @@
 
 #include "util.h"
 
-// Most of this should be verbatim from https://github.com/davidgumberg/bitcoin/tree/adb/src/dbwrapper.h
+class dbwrapper_error : public std::runtime_error
+{
+public:
+    explicit dbwrapper_error(const std::string& msg) : std::runtime_error(msg) {}
+};
+
+// Most of this was taken verbatim from https://github.com/davidgumberg/bitcoin/tree/adb/src/dbwrapper.h
 
 static const size_t DBWRAPPER_PREALLOC_KEY_SIZE = 64;
 static const size_t DBWRAPPER_PREALLOC_VALUE_SIZE = 1024;
@@ -48,7 +54,7 @@ class CDBWrapperBase;
 class CDBBatchBase
 {
 protected:
-    const CDBWrapperBase &parent;
+    const CDBWrapperBase& m_parent;
 
     DataStream ssKey{};
     DataStream ssValue{};
@@ -62,7 +68,7 @@ public:
     /**
      * @param[in] _parent   CDBWrapper that this batch is to be submitted to
      */
-    explicit CDBBatchBase(const CDBWrapperBase& _parent) : parent{_parent} {}
+    explicit CDBBatchBase(const CDBWrapperBase& _parent) : m_parent{_parent} {}
     virtual ~CDBBatchBase() = default;
     virtual void Clear() = 0;
 

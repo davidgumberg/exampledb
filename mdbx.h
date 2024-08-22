@@ -14,13 +14,15 @@ class MDBXBatch;
 
 class MDBXWrapper : public CDBWrapperBase
 {
+    
+    friend class MDBXBatch; // We want MDBXBatch to be able to access the env and sync
+                            // Is there a better mechanism than friend class?
 private:
     std::unique_ptr<MDBXContext> m_db_context;
 
     auto& DBContext() const [[clang::lifetimebound]] {
         assert(m_db_context);
         return *m_db_context;
-
     }
 
     std::optional<std::string> ReadImpl(std::span<const std::byte> key) const override;
@@ -28,6 +30,8 @@ private:
     size_t EstimateSizeImpl(std::span<const std::byte> key1, std::span<const std::byte> key2) const override;
 
     std::unique_ptr<CDBBatchBase> CreateBatch() const override;
+
+    void Sync();
 
 public:
     MDBXWrapper(std::filesystem::path path);
@@ -49,13 +53,12 @@ public:
 /** Batch of changes queued to be written to an MDBXWrapper */
 class MDBXBatch : public CDBBatchBase
 {
+    // We want MDBXBatch to be able to access DBContext()
     friend class MDBXWrapper;
 
 private:
-    const MDBXWrapper &parent;
-
-    struct WriteBatchImpl;
-    const std::unique_ptr<WriteBatchImpl> m_impl_batch;
+    struct MDBXWriteBatchImpl;
+    const std::unique_ptr<MDBXWriteBatchImpl> m_impl_batch;
 
     void WriteImpl(std::span<const std::byte> key, DataStream& ssValue) override;
     void EraseImpl(std::span<const std::byte> key) override;
@@ -82,7 +85,6 @@ public:
     std::span<const std::byte> GetValueImpl() const override;
 
 public:
-
     /**
      * @param[in] _parent          Parent CDBWrapper instance.
      * @param[in] _piter           MDBX iterator.

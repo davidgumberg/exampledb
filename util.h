@@ -7,6 +7,9 @@
 #include <span>
 #include <vector>
 
+// Used for slices
+static auto CharCast(const std::byte* data) { return reinterpret_cast<const char*>(data); }
+
 template<typename Stream> inline void ser_writedata8(Stream &s, uint8_t obj)
 {
     s.write(std::as_bytes(std::span{&obj, 1}));
