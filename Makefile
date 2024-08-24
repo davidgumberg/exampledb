@@ -12,7 +12,7 @@ LIBS = -lcrypto
 LIBS += -lmdbx
 
 # Compiler flags
-CXXFLAGS = -std=c++20
+CXXFLAGS = -std=c++20 -Wall
 
 DEBUG_FLAGS = -g -DDEBUG
 RELEASE_FLAGS = -Wall -Wextra -O2
