@@ -41,7 +41,7 @@ int main() {
     std::vector<KeyValuePair> pairs;
 
     // Generate 10 random key-value pairs
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 100; i++) {
        pairs.push_back(get_random_kvp());
     }
 

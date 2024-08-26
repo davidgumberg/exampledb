@@ -131,12 +131,14 @@ MDBXBatch::MDBXBatch (const CDBWrapperBase& _parent) : CDBBatchBase(_parent)
     parent.DBContext().read_txn.reset_reading();
     // MDBXBatch is a wrapper for LMDB/MDBX's txn
     m_impl_batch->txn = parent.DBContext().env.start_write();
-    // m_impl_batch->map = m_impl_batch->txn.create_map(nullptr, mdbx::key_mode::usual, mdbx::value_mode::single);
+    m_impl_batch->map = m_impl_batch->txn.create_map(nullptr, mdbx::key_mode::usual, mdbx::value_mode::single);
 };
 
 MDBXBatch::~MDBXBatch()
 {
-    m_impl_batch->txn.abort();
+    if(m_impl_batch->txn){
+        m_impl_batch->txn.abort();
+    }
     const MDBXWrapper& parent = static_cast<const MDBXWrapper&>(m_parent);
 
     parent.DBContext().read_txn.renew_reading();
