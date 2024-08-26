@@ -3,6 +3,7 @@
 
 #include <mdbx.h++>
 
+#include "dbwrapper.h"
 #include "util.h"
 #include "mdbx.h"
 
@@ -60,31 +61,25 @@ std::optional<std::string> MDBXWrapper::ReadImpl(std::span<const std::byte> key)
             return std::nullopt;
     }
     else {
-        return slValue.as_string();
+        return std::string(slValue.as_string());
     }
 
-    if (!status.ok()) {
-        if (status.IsNotFound())
-            return std::nullopt;
-        LogPrintf("LevelDB read failure: %s\n", status.ToString());
-        HandleError(StatusImpl{status});
-    }
-    return strValue;
+    assert(-1);
 }
 
-bool CDBWrapper::ExistsImpl(Span<const std::byte> key) const
+bool MDBXWrapper::ExistsImpl(std::span<const std::byte> key) const
 {
-    leveldb::Slice slKey(CharCast(key.data()), key.size());
-
-    std::string strValue;
-    leveldb::Status status = DBContext().pdb->Get(DBContext().readoptions, slKey, &strValue);
-    if (!status.ok()) {
-        if (status.IsNotFound())
+    mdbx::slice slKey(CharCast(key.data()), key.size()), slValue;
+    slValue = DBContext().read_txn.get(DBContext().read_map, slKey, mdbx::slice::invalid());
+    
+    if(slValue == mdbx::slice::invalid()) {
             return false;
-        LogPrintf("LevelDB read failure: %s\n", status.ToString());
-        HandleError(StatusImpl{status});
     }
-    return true;
+    else {
+        return true;
+    }
+
+    assert(-1);
 }
 
 
@@ -98,6 +93,28 @@ bool MDBXWrapper::WriteBatch(CDBBatchBase& _batch, bool fSync)
         Sync();
     }
     return true;
+}
+
+size_t MDBXWrapper::EstimateSizeImpl(std::span<const std::byte> key1, std::span<const std::byte> key2) const
+{
+    // Only relevant for `gettxoutsetinfo` rpc.
+    // Hint: (leaves + inner pages + overflow pages) * page size.
+    return size_t{0};
+}
+
+size_t MDBXWrapper::DynamicMemoryUsage() const
+{
+    // Only relevant for some logging that happens in WriteBatch
+    // TODO: how can I estimate this? I believe mmap makes this a challenge
+    return size_t{0};
+}
+
+bool MDBXWrapper::IsEmpty()
+{
+    auto cursor{DBContext().read_txn.open_cursor(DBContext().read_map)};
+
+    // the done parameter indicates whether or not the cursor move succeeded.
+    return cursor.to_first(/*throw_notfound=*/false).done;
 }
 
 MDBXBatch::MDBXBatch (const CDBWrapperBase& _parent) : CDBBatchBase(_parent)
@@ -152,4 +169,50 @@ void MDBXBatch::EraseImpl(std::span<const std::byte> key)
     // - byte[]: key
     // The formula below assumes the key is less than 16kB.
     // size_estimate += 2 + (slKey.size() > 127) + slKey.size();
+}
+
+struct MDBXIterator::IteratorImpl {
+    const std::unique_ptr<mdbx::cursor_managed> cursor;
+    explicit IteratorImpl(mdbx::cursor_managed _cursor) : cursor{std::make_unique<mdbx::cursor_managed>(std::move(_cursor))} {}
+};
+
+MDBXIterator::MDBXIterator(const CDBWrapperBase& _parent, std::unique_ptr<IteratorImpl> _piter): CDBIteratorBase(_parent),
+                                                                                            m_impl_iter(std::move(_piter)) {}
+
+void MDBXIterator::SeekImpl(std::span<const std::byte> key)
+{
+    mdbx::slice slKey(CharCast(key.data()), key.size());
+    m_impl_iter->cursor->seek(slKey);
+}
+
+CDBIteratorBase* MDBXWrapper::NewIterator()
+{
+    return new MDBXIterator{*this, std::make_unique<MDBXIterator::IteratorImpl>(DBContext().read_txn.open_cursor(DBContext().read_map))};
+}
+
+std::span<const std::byte> MDBXIterator::GetKeyImpl() const
+{
+    return std::as_bytes(m_impl_iter->cursor->current().key.bytes());
+}
+
+std::span<const std::byte> MDBXIterator::GetValueImpl() const
+{
+    // std::as_bytes is necessary since mdbx::slice::bytes() returns a span of `char8_` not std::byte
+    return std::as_bytes(m_impl_iter->cursor->current().value.bytes());
+}
+
+MDBXIterator::~MDBXIterator() = default;
+
+bool MDBXIterator::Valid() const {
+    return false;
+}
+
+void MDBXIterator::SeekToFirst()
+{
+    m_impl_iter->cursor->to_first();
+}
+
+void MDBXIterator::Next()
+{
+    m_impl_iter->cursor->to_next();
 }
