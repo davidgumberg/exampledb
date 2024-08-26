@@ -6,6 +6,15 @@
 
 #include "kv.h"
 #include "mdbx.h"
+//
+// Overload the left shift operator to print std::span<const std::byte>
+std::ostream& operator<<(std::ostream& os, const std::span<const std::byte>& bytes) {
+    os << "0x";
+    for (const auto& byte : bytes) {
+        os << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte);
+    }
+    return os;
+}
 
 int main() {
     std::filesystem::path data_path;
@@ -38,7 +47,8 @@ int main() {
 
     // Loop through and print the key-value pairs
     for (const auto& pair : pairs) {
-        std::cout << "Key: " << pair.first << ", Value: " << pair.second << std::endl;
+        wrap_mdbx.Write(pair.key, pair.value);
+        std::cout << "Key: " << pair.key << ", Value: " << std::to_string(pair.value) << std::endl;
     }
 
     return 0;

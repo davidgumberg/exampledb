@@ -18,7 +18,7 @@ class MDBXBatch : public CDBBatchBase
 
 private:
     struct MDBXWriteBatchImpl;
-    const std::unique_ptr<MDBXWriteBatchImpl> m_impl_batch;
+    std::unique_ptr<MDBXWriteBatchImpl> m_impl_batch;
 
     void WriteImpl(std::span<const std::byte> key, DataStream& ssValue) override;
     void EraseImpl(std::span<const std::byte> key) override;

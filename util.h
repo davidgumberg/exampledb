@@ -3,18 +3,40 @@
 
 #include <cstdint>
 #include <cstring>
+#include <iomanip>
 #include <ios>
 #include <span>
 #include <vector>
 
+// Helper functions to safely cast basic byte pointers to unsigned char pointers.
+inline unsigned char* UCharCast(char* c) { return reinterpret_cast<unsigned char*>(c); }
+inline unsigned char* UCharCast(unsigned char* c) { return c; }
+inline unsigned char* UCharCast(signed char* c) { return reinterpret_cast<unsigned char*>(c); }
+inline unsigned char* UCharCast(std::byte* c) { return reinterpret_cast<unsigned char*>(c); }
+inline const unsigned char* UCharCast(const char* c) { return reinterpret_cast<const unsigned char*>(c); }
+inline const unsigned char* UCharCast(const unsigned char* c) { return c; }
+inline const unsigned char* UCharCast(const signed char* c) { return reinterpret_cast<const unsigned char*>(c); }
+inline const unsigned char* UCharCast(const std::byte* c) { return reinterpret_cast<const unsigned char*>(c); }
+
+// Helper concept for the basic byte types.
+template <typename B>
+concept BasicByte = requires { UCharCast(std::span<B>{}.data()); };
+
+
 // Used for slices
 static auto CharCast(const std::byte* data) { return reinterpret_cast<const char*>(data); }
+
 
 template<typename Stream> inline void ser_writedata8(Stream &s, uint8_t obj)
 {
     s.write(std::as_bytes(std::span{&obj, 1}));
 }
-template <typename Stream> void Serialize(Stream& s, std::byte a) { ser_writedata8(s, uint8_t(a)); }
+
+template <typename Stream> inline void Serialize(Stream& s, std::byte a)    { ser_writedata8(s, uint8_t(a)); }
+template<typename Stream> inline void Serialize(Stream& s, int8_t a  )      { ser_writedata8(s, a); }
+template<typename Stream> inline void Serialize(Stream& s, uint8_t a  )     { ser_writedata8(s, a); }
+template <typename Stream, BasicByte B> void Serialize(Stream& s, std::span<B> span) { s.write(std::as_bytes(span)); }
+
 
 template<typename Stream> inline uint8_t ser_readdata8(Stream &s)
 {
@@ -22,7 +44,10 @@ template<typename Stream> inline uint8_t ser_readdata8(Stream &s)
     s.read(std::as_writable_bytes(std::span{&obj, 1}));
     return obj;
 }
-template <typename Stream> void Unserialize(Stream& s, std::byte& a) { a = std::byte{ser_readdata8(s)}; }
+template <typename Stream> inline void Unserialize(Stream& s, std::byte& a) { a = std::byte{ser_readdata8(s)}; }
+template<typename Stream> inline void Unserialize(Stream& s, int8_t& a  )   { a = ser_readdata8(s); }
+template<typename Stream> inline void Unserialize(Stream& s, uint8_t& a )   { a = ser_readdata8(s); }
+template <typename Stream, BasicByte B> void Unserialize(Stream& s, std::span<B> span) { s.read(std::as_writable_bytes(span)); }
 
 
 

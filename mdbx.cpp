@@ -21,14 +21,15 @@ struct MDBXContext {
     mdbx::env::operate_parameters operate_params;
     mdbx::env_managed::create_parameters create_params;
 
-    // MDBX environment handle
-    mdbx::env_managed env;
     // MDBX read txn and map
     mdbx::txn_managed read_txn;
+    // MDBX environment handle
+    mdbx::env_managed env;
     mdbx::map_handle read_map;
 
     ~MDBXContext()
     {
+        read_txn.abort();
         env.close();
     }
 };
@@ -39,8 +40,13 @@ MDBXWrapper::MDBXWrapper(std::filesystem::path path)
 {
     // initialize the mdbx environment.
     DBContext().env = mdbx::env_managed(path, DBContext().create_params, DBContext().operate_params);
+
+    auto tempwrite = DBContext().env.start_write();
+    auto tempmap = tempwrite.create_map(nullptr, mdbx::key_mode::usual, mdbx::value_mode::single);
+    tempwrite.commit();
+
     DBContext().read_txn = DBContext().env.start_read();
-    DBContext().read_map = DBContext().read_txn.create_map(nullptr, mdbx::key_mode::usual, mdbx::value_mode::single);
+    DBContext().read_map = DBContext().read_txn.open_map(nullptr, mdbx::key_mode::usual, mdbx::value_mode::single);
 };
 
 MDBXWrapper::~MDBXWrapper() = default;
@@ -85,13 +91,13 @@ bool MDBXWrapper::ExistsImpl(std::span<const std::byte> key) const
 
 bool MDBXWrapper::WriteBatch(CDBBatchBase& _batch, bool fSync)
 {
-    // Cast the base batch to derived MDBXBatch
     MDBXBatch& batch = static_cast<MDBXBatch&>(_batch);
     batch.m_impl_batch->txn.commit();
 
     if(fSync) {
         Sync();
     }
+
     return true;
 }
 
@@ -120,13 +126,21 @@ bool MDBXWrapper::IsEmpty()
 MDBXBatch::MDBXBatch (const CDBWrapperBase& _parent) : CDBBatchBase(_parent)
 {
     const MDBXWrapper& parent = static_cast<const MDBXWrapper&>(m_parent);
+    m_impl_batch = std::make_unique<MDBXWriteBatchImpl>();
 
+    parent.DBContext().read_txn.reset_reading();
     // MDBXBatch is a wrapper for LMDB/MDBX's txn
     m_impl_batch->txn = parent.DBContext().env.start_write();
-    m_impl_batch->map = m_impl_batch->txn.create_map(nullptr, mdbx::key_mode::usual, mdbx::value_mode::single);
+    // m_impl_batch->map = m_impl_batch->txn.create_map(nullptr, mdbx::key_mode::usual, mdbx::value_mode::single);
 };
 
-MDBXBatch::~MDBXBatch() = default;
+MDBXBatch::~MDBXBatch()
+{
+    m_impl_batch->txn.abort();
+    const MDBXWrapper& parent = static_cast<const MDBXWrapper&>(m_parent);
+
+    parent.DBContext().read_txn.renew_reading();
+}
 
 void MDBXBatch::Clear()
 {

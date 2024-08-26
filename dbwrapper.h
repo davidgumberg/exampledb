@@ -2,6 +2,7 @@
 #define DBWRAPPER_H
 
 #include <filesystem>
+#include <iostream>
 #include <optional>
 #include <span>
 
@@ -169,8 +170,10 @@ public:
     bool Write(const K& key, const V& value, bool fSync = false)
     {
         auto batch = CreateBatch();
-        batch->Write(key, value);
-        return WriteBatch(*batch, fSync);
+        // batch->Write(key, value);
+        // std::cout << "Did we get here pt.2?";
+        // return WriteBatch(*batch, fSync);
+        return true;
     }
 
     //! @returns filesystem path to the on-disk data.

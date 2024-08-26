@@ -1,7 +1,10 @@
+#include <cmath>
+#include <cstdint>
 #include <iomanip>
 #include <iostream>
 #include <openssl/evp.h>
 #include <random>
+#include <span>
 #include <sstream>
 #include <string>
 
@@ -15,9 +18,11 @@ KeyValuePair get_random_kvp() {
 
     std::string input = "input" + std::to_string(dis(gen));
     std::string key = sha256(input);
-    double value = dis(gen);
+    uint8_t value = std::floor(dis(gen) * 100);
+    
+    const std::span<const std::byte> _key = std::as_bytes(std::span(key));
 
-    return KeyValuePair{key, value};
+    return KeyValuePair{_key, value};
 }
 
 /* Return the sha256 of a given string */
