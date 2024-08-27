@@ -10,19 +10,23 @@
 
 #include "kv.h"
 
-/* Generate a random std::string key, and double value. */
-KeyValuePair get_random_kvp() {
+
+/* Static random number generator */
+std::mt19937 get_random_generator() {
     std::random_device rd;
-    std::mt19937 gen(rd());
+    return std::mt19937(rd());
+}
+
+/* Generate a random std::string key, and char value. */
+KeyValuePair get_random_kvp() {
+    std::mt19937 gen = get_random_generator();;
     std::uniform_real_distribution<> dis(0.0, 1.0);
 
-    std::string input = "input" + std::to_string(dis(gen));
+    std::string input = "input " + std::to_string(dis(gen));
     std::string key = sha256(input);
     uint8_t value = std::floor(dis(gen) * 100);
     
-    const std::span<const std::byte> _key = std::as_bytes(std::span(key));
-
-    return KeyValuePair{_key, value};
+    return KeyValuePair{key, value};
 }
 
 /* Return the sha256 of a given string */

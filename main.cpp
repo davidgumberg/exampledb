@@ -1,5 +1,6 @@
 #include <filesystem>
 #include <iostream>
+#include <span>
 #include <vector>
 
 #include <mdbx.h++>
@@ -41,14 +42,14 @@ int main() {
     std::vector<KeyValuePair> pairs;
 
     // Generate 10 random key-value pairs
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 9999; i++) {
        pairs.push_back(get_random_kvp());
     }
 
     // Loop through and print the key-value pairs
     for (const auto& pair : pairs) {
-        wrap_mdbx.Write(pair.key, pair.value);
-        std::cout << "Key: " << pair.key << ", Value: " << std::to_string(pair.value) << std::endl;
+        wrap_mdbx.Write(pair.key_bytes(), pair.value);
+        // std::cout << "Key: " << pair.key << ", Value: " << std::to_string(pair.value) << std::endl;
     }
 
     return 0;
