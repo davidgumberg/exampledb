@@ -59,7 +59,6 @@ public:
 
 class MDBXWrapper : public CDBWrapperBase
 {
-    
     friend class MDBXBatch; // We want MDBXBatch to be able to access the env and sync
                             // Is there a better mechanism than friend class?
 private:

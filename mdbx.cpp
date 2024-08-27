@@ -42,7 +42,7 @@ MDBXWrapper::MDBXWrapper(std::filesystem::path path)
     DBContext().env = mdbx::env_managed(path, DBContext().create_params, DBContext().operate_params);
 
     auto tempwrite = DBContext().env.start_write();
-    auto tempmap = tempwrite.create_map(nullptr, mdbx::key_mode::usual, mdbx::value_mode::single);
+     tempwrite.create_map(nullptr, mdbx::key_mode::usual, mdbx::value_mode::single);
     tempwrite.commit();
 
     DBContext().read_txn = DBContext().env.start_read();
@@ -86,6 +86,12 @@ bool MDBXWrapper::ExistsImpl(std::span<const std::byte> key) const
     assert(-1);
 }
 
+size_t MDBXWrapper::EstimateSizeImpl(std::span<const std::byte> key1, std::span<const std::byte> key2) const
+{
+    // Only relevant for `gettxoutsetinfo` rpc.
+    // Hint: (leaves + inner pages + overflow pages) * page size.
+    return size_t{0};
+}
 
 bool MDBXWrapper::WriteBatch(CDBBatchBase& _batch, bool fSync)
 {
@@ -98,14 +104,6 @@ bool MDBXWrapper::WriteBatch(CDBBatchBase& _batch, bool fSync)
 
     return true;
 }
-
-size_t MDBXWrapper::EstimateSizeImpl(std::span<const std::byte> key1, std::span<const std::byte> key2) const
-{
-    // Only relevant for `gettxoutsetinfo` rpc.
-    // Hint: (leaves + inner pages + overflow pages) * page size.
-    return size_t{0};
-}
-
 size_t MDBXWrapper::DynamicMemoryUsage() const
 {
     // Only relevant for some logging that happens in WriteBatch
