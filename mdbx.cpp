@@ -58,12 +58,10 @@ void MDBXWrapper::Sync()
 
 std::optional<std::string> MDBXWrapper::ReadImpl(std::span<const std::byte> key) const
 {
-    // Used to represent key-not-found
-    const mdbx::slice& not_found("key not found");
     mdbx::slice slKey(CharCast(key.data()), key.size()), slValue;
-    slValue = DBContext().read_txn.get(DBContext().read_map, slKey, not_found);
+    slValue = DBContext().read_txn.get(DBContext().read_map, slKey, mdbx::slice::invalid());
     
-    if(slValue == not_found) {
+    if(slValue == mdbx::slice::invalid()) {
             return std::nullopt;
     }
     else {
